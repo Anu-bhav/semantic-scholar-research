@@ -11,10 +11,7 @@ This is a command-line tool that interacts with the [Semantic Scholar](https://w
 The tool handles API rate limits, includes error handling, and supports parallel PDF downloads for efficiency. It also features in-memory caching to reduce API calls.
 
 > [!WARNING]
->
-> ## Status: Probably Works (Mostly)
->
-> This project is currently in a state of "mostly functional." Think of it like a slightly wonky robot butler – it _usually_ does what you ask, but sometimes it might bring you a sock instead of a cup of tea. Bug reports are greatly appreciated (and will be rewarded with virtual high-fives).
+> This project is currently in a state of "mostly functional," kind of like a slightly wonky robot butler – it _usually_ does what you ask, but sometimes it might bring you a sock instead of a cup of tea. This was also put together during a caffeine-fueled weekend, so please don't have _too_ high of expectations. Bug reports are greatly appreciated (and will be rewarded with virtual high-fives)!
 
 ## Prerequisites
 
