@@ -20,6 +20,7 @@ The tool handles API rate limits, includes error handling, and supports parallel
 
   ```bash
   uv venv
+  .venv/bin/activate
   uv pip install -r requirements.txt
   ```
 
@@ -30,7 +31,7 @@ The tool handles API rate limits, includes error handling, and supports parallel
 
 ## Usage
 
-python semantic-scholar-research.py <type> <id> [options]
+python semantic-scholar-research.py `<type>` `<id>` [options]
 
 ### Arguments
 
