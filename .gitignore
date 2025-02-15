@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environments
+.env
+venv/
+ENV/
+
+# IDE/Editor specific files
+.idea/
+.vscode/
+*.swp
+
+# OS generated files
+.DS_Store
+
+# Downloads directory (if you want to exclude downloaded PDFs)
+downloads/
+PhD.code-workspace
