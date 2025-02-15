@@ -439,7 +439,6 @@ async def make_request(endpoint: str, params: Dict = None) -> Dict:
 
 
 # 1.1 Paper relevance search
-# @mcp.tool() # Removed decorator
 async def paper_relevance_search(
     # context: Context, # Removed context
     query: str,
@@ -614,7 +613,6 @@ async def paper_relevance_search(
 
 
 # 1.2 Paper bulk search
-# @mcp.tool() # Removed decorator
 async def paper_bulk_search(
     # context: Context, # Removed context
     query: Optional[str] = None,
@@ -848,7 +846,6 @@ async def paper_bulk_search(
 
 
 # 1.3 Paper title search
-# @mcp.tool() # Removed decorator
 async def paper_title_search(
     # context: Context, # Removed context
     query: str,
@@ -1021,7 +1018,6 @@ async def paper_title_search(
 
 
 # 1.4 Details about a paper
-# @mcp.tool() # Removed decorator
 async def paper_details(
     # context: Context, # Removed context
     paper_id: str,
@@ -1111,7 +1107,6 @@ async def paper_details(
 
 
 # 1.5 Get details for multiple papers at once
-# @mcp.tool() # Removed decorator
 async def paper_batch_details(
     # context: Context, # Removed context
     paper_ids: List[str],
@@ -1245,7 +1240,6 @@ async def paper_batch_details(
 
 
 # 1.6 Details about a paper's authors
-# @mcp.tool() # Removed decorator
 async def paper_authors(
     # context: Context, # Removed context
     paper_id: str,
@@ -1346,7 +1340,6 @@ async def paper_authors(
 
 
 # 1.7 Details about a paper's citations
-# @mcp.tool() # Removed decorator
 async def paper_citations(
     # context: Context, # Removed context
     paper_id: str,
@@ -1446,7 +1439,6 @@ async def paper_citations(
 
 
 # 1.8 Details about a paper's references
-# @mcp.tool() # Removed decorator
 async def paper_references(
     # context: Context, # Removed context
     paper_id: str,
@@ -1549,7 +1541,6 @@ async def paper_references(
 
 
 # 2.1 Search for authors by name
-# @mcp.tool() # Removed decorator
 async def author_search(
     # context: Context, # Removed context
     query: str,
@@ -1643,7 +1634,6 @@ async def author_search(
 
 
 # 2.2 Details about an author
-# @mcp.tool() # Removed decorator
 async def author_details(
     # context: Context, # Removed context
     author_id: str,
@@ -1723,7 +1713,6 @@ async def author_details(
 
 
 # 2.3 Details about an author's papers
-# @mcp.tool() # Removed decorator
 async def author_papers(
     # context: Context, # Removed context
     author_id: str,
@@ -1817,7 +1806,6 @@ async def author_papers(
 
 
 # 2.4 Get details for multiple authors at once
-# @mcp.tool() # Removed decorator
 async def author_batch_details(
     # context: Context, # Removed context
     author_ids: List[str],
@@ -1934,7 +1922,6 @@ async def author_batch_details(
 
 
 # 3.1 Get recommendations based on a single paper
-# @mcp.tool() # Removed decorator
 async def get_paper_recommendations_single(
     # context: Context, # Removed context
     paper_id: str,
@@ -2066,7 +2053,6 @@ async def get_paper_recommendations_single(
 
 
 # 3.2 Get recommendations based on multiple papers
-# @mcp.tool() # Removed decorator
 async def get_paper_recommendations_multi(
     # context: Context, # Removed context
     positive_paper_ids: List[str],
