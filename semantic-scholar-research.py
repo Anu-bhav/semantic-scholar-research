@@ -2207,9 +2207,12 @@ async def scrape_pdf_link(doi: str) -> Optional[str]:
         "Referer": "https://scholar.google.com",  # Some sites require a referrer
     }
 
+    # got most of the patterns from here from reverse engineering the unpaywall chrome extension
     unpaywall_url = f"https://api.unpaywall.org/v2/{doi}?email=unpaywall@impactstory.org"
 
     try:
+        pdf_url = None
+
         # --- Unpaywall Check ---
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(unpaywall_url)
@@ -2220,6 +2223,12 @@ async def scrape_pdf_link(doi: str) -> Optional[str]:
 
             if data.get("is_oa"):
                 logger.info(f"Paper is Open Access according to Unpaywall. DOI: {doi}")
+
+                if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
+                    logger.info(f"Found direct PDF URL from Unpaywall: {data['best_oa_location']['url_for_pdf']}")
+                    pdf_url = data["best_oa_location"]["url_for_pdf"]  # Return directly if available
+                    return pdf_url
+
             else:
                 logger.info(f"Paper is NOT Open Access according to Unpaywall. DOI: {doi}")
 
@@ -2236,7 +2245,6 @@ async def scrape_pdf_link(doi: str) -> Optional[str]:
         #     response.raise_for_status()
 
         selector = Selector(text=response.text)
-        pdf_url = None
 
         # --- Meta Tag Check ---
         meta_pdf_url = selector.xpath("//meta[@name='citation_pdf_url']/@content").get()
@@ -2328,14 +2336,14 @@ async def scrape_pdf_link(doi: str) -> Optional[str]:
             if any(pattern in link.lower() for pattern in PDF_PATTERNS):
                 # check if any of the patterns are in the link and the doi_last_3 is in the link
                 if doi_last_3 in link.lower():
-                    full_pdf_link = httpx.URL(final_url).join(link).unicode_string()
-                    logger.info(f"Found PDF link (General Pattern): {full_pdf_link}")
-                    return str(full_pdf_link)
+                    pdf_url = httpx.URL(final_url).join(link).unicode_string()
+                    logger.info(f"Found PDF link (General Pattern): {pdf_url}")
+                    return str(pdf_url)
 
                 # if the doi_last_3 is not in the link, check if the link is a pdf, do this as final.
-                full_pdf_link = httpx.URL(final_url).join(link).unicode_string()
-                logger.info(f"Found PDF link (General Pattern): {full_pdf_link}")
-                return str(full_pdf_link)
+                pdf_url = httpx.URL(final_url).join(link).unicode_string()
+                logger.info(f"Found PDF link (General Pattern): {pdf_url}")
+                return str(pdf_url)
 
         logger.warning("No PDF link found on the page.")
         return None
