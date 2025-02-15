@@ -2205,7 +2205,7 @@ async def get_paper_recommendations_multi(
         return create_error_response(ErrorType.API_ERROR, "Failed to get recommendations", {"error": str(e)})
 
 
-async def scrape_pdf_link(paper_url: str, doi: str) -> Optional[str]:
+async def scrape_pdf_link(doi: str) -> Optional[str]:
     """
     Extracts a direct PDF link by scraping the final article webpage.
 
@@ -2217,11 +2217,26 @@ async def scrape_pdf_link(paper_url: str, doi: str) -> Optional[str]:
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-        "Accept": "application/pdf",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Referer": "https://scholar.google.com",  # Some sites require a referrer
     }
 
+    unpaywall_url = f"https://api.unpaywall.org/v2/{doi}?email=unpaywall@impactstory.org"
+
     try:
+        # --- Unpaywall Check ---
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(unpaywall_url)
+            response.raise_for_status()
+            data = response.json()
+
+            paper_url = data.get("doi_url")
+
+            if data.get("is_oa"):
+                logger.info(f"Paper is Open Access according to Unpaywall. DOI: {doi}")
+            else:
+                logger.info(f"Paper is NOT Open Access according to Unpaywall. DOI: {doi}")
+
         # Get final redirected URL (important for DOI links)
         async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
             response = await client.get(paper_url, headers=headers)
@@ -2235,32 +2250,122 @@ async def scrape_pdf_link(paper_url: str, doi: str) -> Optional[str]:
         #     response.raise_for_status()
 
         selector = Selector(text=response.text)
-        pdf_links = selector.css("a::attr(href)").getall()
+        pdf_url = None
 
+        # --- Meta Tag Check ---
+        meta_pdf_url = selector.xpath("//meta[@name='citation_pdf_url']/@content").get()
+        if meta_pdf_url:
+            logger.info(f"Found PDF URL in meta tag: {meta_pdf_url}")
+            return meta_pdf_url
+
+        # --- Domain-Specific Link Checks ---
+        for link in selector.xpath("//a"):
+            href = link.xpath("@href").get()
+            if not href:
+                continue
+
+            # 1. Nature.com (Pattern 1)
+            if "nature.com" in final_url:
+                match = re.search(r"/nature/journal/.+?/pdf/(.+?)\.pdf$", href)
+                if match:
+                    pdf_url = httpx.URL(final_url).join(href).unicode_string()
+                    logger.info(f"Found PDF URL (Nature.com Pattern 1): {pdf_url}")
+                    return pdf_url
+
+                # 2. Nature.com (Pattern 2)
+                match = re.search(r"/articles/nmicrobiol\d+\.pdf$", href)
+                if match:
+                    pdf_url = httpx.URL(final_url).join(href).unicode_string()
+                    logger.info(f"Found PDF URL (Nature.com Pattern 2): {pdf_url}")
+                    return pdf_url
+
+            # 3. NEJM
+            if "nejm.org" in final_url:
+                if link.xpath("@data-download-content").get() == "Article":
+                    pdf_url = httpx.URL(final_url).join(href).unicode_string()
+                    logger.info(f"Found PDF URL (NEJM): {pdf_url}")
+                    return pdf_url
+
+            # 4. Taylor & Francis Online
+            if "tandfonline.com" in final_url:
+                match = re.search(r"/doi/pdf/10.+?needAccess=true", href, re.IGNORECASE)
+                if match:
+                    pdf_url = httpx.URL(final_url).join(href).unicode_string()
+                    logger.info(f"Found PDF URL (Taylor & Francis): {pdf_url}")
+                    return pdf_url
+
+            # 5. Centers for Disease Control (CDC)
+            if "cdc.gov" in final_url:
+                if "noDecoration" == link.xpath("@class").get() and re.search(r"\.pdf$", href):
+                    pdf_url = httpx.URL(final_url).join(href).unicode_string()
+                    logger.info(f"Found PDF URL (CDC): {pdf_url}")
+                    return pdf_url
+
+            # 6. ScienceDirect
+            if "sciencedirect.com" in final_url:
+                pdf_url_attribute = link.xpath("@pdfurl").get()
+                if pdf_url_attribute:
+                    pdf_url = httpx.URL(final_url).join(pdf_url_attribute).unicode_string()
+                    logger.info(f"Found PDF URL (ScienceDirect): {pdf_url}")
+                    return pdf_url
+
+        # 7. IEEE Explore (check within the entire page content)
+        if "ieeexplore.ieee.org" in final_url:
+            match = re.search(r'"pdfPath":"(.+?)\.pdf"', response.text)
+            if match:
+                pdf_path = match.group(1) + ".pdf"
+                pdf_url = "https://ieeexplore.ieee.org" + pdf_path
+                logger.info(f"Found PDF URL (IEEE Explore): {pdf_url}")
+                return pdf_url
+
+        # --- General PDF Pattern Check (Fallback) ---
+        # use the last 3 characters of the DOI to match the link because it's a commmon pattern
+        # for it to be included in the URL. This is to avoid false positives.
+        # Not always the case though.
         doi_last_3 = doi[-3:] if len(doi) >= 3 else doi
-
         PDF_PATTERNS = [
-            ".pdf",  # Standard PDFs
-            "/pdf",  # PDF paths without extensions
-            "pdf/",  # PDF paths without extensions
-            "download",  # Download URLs
-            "fulltext",  # Full text links
-            "article",  # Article-specific PDF links
-            "viewer",  # Embedded viewer PDFs
-            "content/pdf",  # Used by Springer, Wiley, etc.
+            ".pdf",
+            "/pdf/",
+            "pdf/",
+            "download",
+            "fulltext",
+            "article",
+            "viewer",
+            "content/pdf",
+            "/nature/journal",
+            "/articles/",
+            "/doi/pdf/",
         ]
+        pdf_links = selector.css("a::attr(href)").getall()  # get all links here to loop through
 
-        for link in pdf_links:
-            if any(pattern in link.lower() for pattern in PDF_PATTERNS) and doi_last_3 in link.lower():
-                full_pdf_link = httpx.URL(final_url).join(link)
-                logger.info(f"Found PDF link: {full_pdf_link}")
+        for link in pdf_links:  # loop through
+            if any(pattern in link.lower() for pattern in PDF_PATTERNS):
+                # check if any of the patterns are in the link and the doi_last_3 is in the link
+                if doi_last_3 in link.lower():
+                    full_pdf_link = httpx.URL(final_url).join(link).unicode_string()
+                    logger.info(f"Found PDF link (General Pattern): {full_pdf_link}")
+                    return str(full_pdf_link)
+
+                # if the doi_last_3 is not in the link, check if the link is a pdf, do this as final.
+                full_pdf_link = httpx.URL(final_url).join(link).unicode_string()
+                logger.info(f"Found PDF link (General Pattern): {full_pdf_link}")
                 return str(full_pdf_link)
 
         logger.warning("No PDF link found on the page.")
         return None
 
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Unpaywall API error ({e.response.status_code}): {e}")
+        if e.response.status_code == 404:
+            logger.error(f"Paper with DOI {doi} not found by Unpaywall")
+        return None
+
     except httpx.RequestError as e:
-        logger.error(f"Error fetching page {paper_url}: {e}")
+        logger.error(f"Request error: {e}")
+        return None
+
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred: {e}")
         return None
 
 
@@ -2283,8 +2388,7 @@ async def download_paper(doi: str, title: str, output_dir: str = "downloads") ->
         # Check Unpaywall and scrape if necessary
         # pdf_url = await find_pdf_url(doi)
 
-        pdf_url = f"https://doi.org/{doi}"
-        pdf_link = await scrape_pdf_link(pdf_url, doi)
+        pdf_link = await scrape_pdf_link(doi)
 
         print("{pdf_link}", "{pdf_url}")
 
