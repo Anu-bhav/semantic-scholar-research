@@ -2242,6 +2242,7 @@ async def scrape_pdf_link(paper_url: str, doi: str) -> Optional[str]:
         PDF_PATTERNS = [
             ".pdf",  # Standard PDFs
             "/pdf",  # PDF paths without extensions
+            "pdf/",  # PDF paths without extensions
             "download",  # Download URLs
             "fulltext",  # Full text links
             "article",  # Article-specific PDF links
